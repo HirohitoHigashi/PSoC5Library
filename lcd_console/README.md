@@ -29,7 +29,7 @@ put a string
 ### void lcdcon_scroll( int row );
 scroll
 
-`lcdcon_scroll(-1);   // back -3 lines.`
+`lcdcon_scroll( -3 );   // back -3 lines.`
 
 
 ## Notes
