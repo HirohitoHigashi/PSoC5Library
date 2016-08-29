@@ -13,14 +13,23 @@
 ## ライブラリ使用
 
 ### 初期化
+
+```
 UART_HANDLER uh;
 uart_init( &uh );
+```
 
 ### 文字列送信
+
+```
 int txlen = uart_puts( &uh, "String" );
+```
 
 ### 文字列受信
+
+```
 char buf[32];
 rxlen = uart_gets( &uh, buf, sizeof(buf) );
+```
 
 ※バイナリ送受信も可能、ソースコード参照。
