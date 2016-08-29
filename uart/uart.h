@@ -2,8 +2,8 @@
   @brief
   UART wrapper for PSoC5LP
 
-  @version 0.1
-  @date Wed Aug 24 15:59:34 2016
+  @version 1.0
+  @date Mon Aug 29 09:30:17 2016
 
   <pre>
   Copyright (C) 2016 Shimane IT Open-Innovation Center.
@@ -62,8 +62,8 @@ typedef struct UART_HANDLER {
 
 /***** Function prototypes **************************************************/
 int uart_init( UART_HANDLER *uh );
-void uart_clear_tx_buffer();
-void uart_clear_rx_buffer();
+void uart_clear_tx_buffer( UART_HANDLER *uh );
+void uart_clear_rx_buffer( UART_HANDLER *uh );
 int uart_write( UART_HANDLER *uh, const char *buf, size_t size );
 int uart_read( UART_HANDLER *uh, char *buf, size_t size );
 int uart_puts( UART_HANDLER *uh, const char *buf );

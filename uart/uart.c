@@ -2,16 +2,14 @@
   @brief
   UART wrapper for PSoC5LP
 
-  @version 0.1
-  @date Wed Aug 24 15:59:34 2016
+  @version 1.0
+  @date Mon Aug 29 09:30:17 2016
 
   <pre>
   Copyright (C) 2016 Shimane IT Open-Innovation Center.
   All Rights Reserved.
 
   This file is distributed under BSD 3-Clause License.
-
-  This is test imprement yet.
   </pre>
 */
 
@@ -23,17 +21,10 @@
 
 /***** Constant values ******************************************************/
 /***** Macros ***************************************************************/
-#ifdef UART_CHECK_TIMEOUT
-#undef UART_CHECK_TIMEOUT
-#define UART_CHECK_TIMEOUT() uart_check_timeout()
-#else
-#define UART_CHECK_TIMEOUT() 0
-#endif
-
-
 /***** Typedefs *************************************************************/
 /***** Function prototypes **************************************************/
 int uart_check_timeout( void );
+void uart_stop_timeout( void );
 
 
 /***** Local variables ******************************************************/
@@ -49,17 +40,14 @@ static UART_HANDLER *p_uart_handler;
 CY_ISR( isr_UART1_Tx )
 {
   UART_HANDLER *uh = p_uart_handler;
-  int sts;
+  int sts = UART1_ReadTxStatus();
 
-  sts = UART1_ReadTxStatus();
-
-  if( sts & UART1_TX_STS_COMPLETE ) {
-    if( uh->tx_rd >= uh->size_txbuf ) {
-      uh->flag_tx_finished = 1;
-      return;
-    }
+  while( sts & UART1_TX_STS_COMPLETE ) {  // not loop, insted of "if"
+    if( uh->tx_rd >= uh->size_txbuf ) uh->flag_tx_finished = 1;
+    if( uh->flag_tx_finished ) break;
 
     UART1_WriteTxData( uh->p_txbuf[ uh->tx_rd++ ] );
+    break;
   }
 }
 
@@ -72,9 +60,9 @@ CY_ISR( isr_UART1_Tx )
 CY_ISR( isr_UART1_Rx )
 {
   UART_HANDLER *uh = p_uart_handler;
-  int sts;
+  int sts = UART1_ReadRxStatus();
 
-  for( sts = UART1_ReadRxStatus(); sts != 0; sts = UART1_ReadRxStatus() ) {
+  for( ; sts != 0; sts = UART1_ReadRxStatus() ) {
     if( sts & UART1_RX_STS_FIFO_NOTEMPTY ) {
       uh->rxfifo[ uh->rx_wr++ ] = UART1_ReadRxData();
 
@@ -174,8 +162,18 @@ int uart_write( UART_HANDLER *uh, const char *buf, size_t size )
   UART1_WriteTxData( *buf );    // send first byte.
   do {
     CyPmAltAct( PM_ALT_ACT_TIME_NONE, PM_ALT_ACT_SRC_PICU );
+#ifdef UART_CHECK_TIMEOUT
+    if( uart_check_timeout() ) {
+      uart_stop_timeout();
+      uh->flag_tx_finished = 1;
+      return -1;
+    }
+#endif
   } while( !uh->flag_tx_finished );
 
+#ifdef UART_CHECK_TIMEOUT
+  uart_stop_timeout();
+#endif
   return uh->tx_rd;
 }
 
@@ -197,6 +195,12 @@ int uart_read( UART_HANDLER *uh, char *buf, size_t size )
     // buffer is empty?
     if( uh->rx_rd == uh->rx_wr ) {
       CyPmAltAct( PM_ALT_ACT_TIME_NONE, PM_ALT_ACT_SRC_PICU );
+#ifdef UART_CHECK_TIMEOUT
+      if( uart_check_timeout() ) {
+        uart_stop_timeout();
+        return -1;
+      }
+#endif
       continue;
     }
 
@@ -206,6 +210,9 @@ int uart_read( UART_HANDLER *uh, char *buf, size_t size )
     if( --cnt == 0 ) break;
   }
 
+#ifdef UART_CHECK_TIMEOUT
+  uart_stop_timeout();
+#endif
   return size - cnt;
 }
 
@@ -225,8 +232,6 @@ int uart_puts( UART_HANDLER *uh, const char *buf )
 
 
 
-
-
 //================================================================
 /*! Receive string.
 
@@ -243,10 +248,13 @@ int uart_gets( UART_HANDLER *uh, char *buf, size_t size )
     // buffer is empty?
     if( uh->rx_rd == uh->rx_wr ) {
       CyPmAltAct( PM_ALT_ACT_TIME_NONE, PM_ALT_ACT_SRC_PICU );
-      if( UART_CHECK_TIMEOUT() ) {
-          *buf = '\0';
-          return -1;
+#ifdef UART_CHECK_TIMEOUT
+      if( uart_check_timeout() ) {
+        uart_stop_timeout();
+        *buf = '\0';
+        return -1;
       }
+#endif
       continue;
     }
 
@@ -258,5 +266,8 @@ int uart_gets( UART_HANDLER *uh, char *buf, size_t size )
   }
   *buf = '\0';
 
+#ifdef UART_CHECK_TIMEOUT
+  uart_stop_timeout();
+#endif
   return size - cnt - 1;
 }
