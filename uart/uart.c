@@ -15,6 +15,7 @@
 
 /***** System headers *******************************************************/
 #include <project.h>
+#include <string.h>
 
 /***** Local headers ********************************************************/
 #include "uart.h"
@@ -152,7 +153,7 @@ void uart_clear_rx_buffer( UART_HANDLER *uh )
 int uart_write( UART_HANDLER *uh, const char *buf, size_t size )
 {
   if( !uh->flag_tx_finished ) return 0;         // TODO: or -1 ??
-  if( *buf == '\0' ) return 0;
+  if( size == 0 ) return 0;
 
   uh->p_txbuf = buf;
   uh->size_txbuf = size;
