@@ -3,7 +3,7 @@
   UART wrapper for PSoC5LP. Multi component version.
 
   @version 1.0
-  @date Tue Sep  6 12:35:58 2016
+  @date Wed Sep  7 16:19:45 2016
 
   <pre>
   Copyright (C) 2016 Shimane IT Open-Innovation Center.
@@ -34,19 +34,26 @@ extern "C" {
 
 
 /***** Macros ***************************************************************/
-/*! Convenience macro to define the interrupt handler.
- */
-#define UART_ISR(uh, NAME)      \
+
+//! Convenience macro to define the interrupt handler for TX only.
+#define UART_ISR_TX(uh, NAME)   \
   CY_ISR(isr_ ## NAME ## _Tx) { \
     uart_isr_tx(uh);            \
-  }                             \
+  }
+
+//! Convenience macro to define the interrupt handler for RX only.
+#define UART_ISR_RX(uh, NAME)   \
   CY_ISR(isr_ ## NAME ## _Rx) { \
     uart_isr_rx(uh);            \
   }
 
+//! Convenience macro to define the interrupt handler for Full UART (TX + RX)
+#define UART_ISR(uh, NAME) \
+  UART_ISR_TX(uh, NAME)    \
+  UART_ISR_RX(uh, NAME)
 
-/*! Initializer macro
- */
+
+//! Initializer macro for Full UART (TX + RX)
 #define uart_init(uh, NAME)                           \
   do {                                                \
     uart_init_m(uh,                                   \
@@ -56,14 +63,49 @@ extern "C" {
                 NAME ## _Stop,                        \
                 NAME ## _ClearTxBuffer,               \
                 NAME ## _ClearRxBuffer,               \
-                NAME ## _ReadRxStatus,                \
                 NAME ## _ReadTxStatus,                \
+                NAME ## _ReadRxStatus,                \
                 NAME ## _WriteTxData,                 \
                 NAME ## _ReadRxData);                 \
     isr_ ## NAME ## _Tx_StartEx(isr_ ## NAME ## _Tx); \
     isr_ ## NAME ## _Rx_StartEx(isr_ ## NAME ## _Rx); \
   } while( 0 )
 
+
+//! Initializer macro for TX only.
+#define uart_init_tx(uh, NAME)                        \
+  do {                                                \
+    uart_init_m(uh,                                   \
+                NAME ## _TX_STS_COMPLETE,             \
+                0,                                    \
+                NAME ## _Start,                       \
+                NAME ## _Stop,                        \
+                NAME ## _ClearTxBuffer,               \
+                0,                                    \
+                NAME ## _ReadTxStatus,                \
+                0,                                    \
+                NAME ## _WriteTxData,                 \
+                0);                                   \
+    isr_ ## NAME ## _Tx_StartEx(isr_ ## NAME ## _Tx); \
+  } while( 0 )
+
+
+//! Initializer macro for RX only.
+#define uart_init_rx(uh, NAME)                        \
+  do {                                                \
+    uart_init_m(uh,                                   \
+                0,                                    \
+                NAME ## _RX_STS_FIFO_NOTEMPTY,        \
+                NAME ## _Start,                       \
+                NAME ## _Stop,                        \
+                0,                                    \
+                NAME ## _ClearRxBuffer,               \
+                0,                                    \
+                NAME ## _ReadRxStatus,                \
+                0,                                    \
+                NAME ## _ReadRxData);                 \
+    isr_ ## NAME ## _Rx_StartEx(isr_ ## NAME ## _Rx); \
+  } while( 0 )
 
 /***** Typedefs *************************************************************/
 
@@ -113,8 +155,8 @@ void uart_init_m(UART_HANDLER *uh,
                  void         *Stop,
                  void         *ClearTxBuffer,
                  void         *ClearRxBuffer,
-                 void         *ReadRxStatus,
                  void         *ReadTxStatus,
+                 void         *ReadRxStatus,
                  void         *WriteTxData,
                  void         *ReadRxData);
 void uart_set_mode(UART_HANDLER *uh, int mode);

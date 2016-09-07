@@ -3,21 +3,43 @@
 ## PSoC Creatorの設定
 
 - Communication > UARTデバイス配置
- - ConfigureダイアログでNameを"UART1"に変更
+ - Configureダイアログを開く
+ - Nameが"UART_1"であることを確認
  - 通信速度等のパラメータ設定
  - 同ダイアログAdvancedタブのInterruptを、"RX- On Byte Received"と"TX - On TX Complete"にチェックを入れる
 - System > Interrupt デバイスを2つ配置
  - UARTのtx_interruptとrx_interruptに接続
- - 名前をそれぞれ、"isr_UART1_Tx"と、"isr_UART1_Rx"に変更
+ - 名前をそれぞれ、"isr_UART_1_Tx"と、"isr_UART_1_Rx"に変更
 
 ## ライブラリ使用
 
 ### 初期化
 
+標準版（UART一つのみ）
 ```
+#include "uart.h"
 UART_HANDLER uh;
-uart_init( &uh );
+
+int main()
+{
+  uart_init( &uh );
+}
 ```
+
+### 初期化
+
+複数版（UART２つ以上）
+```
+#include "uart2.h"
+UART_HANDLER uh;
+UART_ISR( &uh, UART_1 );
+
+int main()
+{
+  uart_init( &uh, UART_1 );
+}
+```
+
 
 ### 文字列送信
 
