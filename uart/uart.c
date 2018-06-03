@@ -2,16 +2,17 @@
   @brief
   UART wrapper for PSoC5LP
 
-  @version 1.1
-  @date Wed Sep  7 11:38:17 2016
+  @version 1.2
+  @date Sun Jun  3 19:54:35 2018
 
   <pre>
-  Copyright (C) 2016 Shimane IT Open-Innovation Center.
+  Copyright (C) 2016-2018 Shimane IT Open-Innovation Center.
   All Rights Reserved.
 
   This file is distributed under BSD 3-Clause License.
   </pre>
 */
+
 
 /***** System headers *******************************************************/
 #include <project.h>
@@ -31,8 +32,8 @@ void uart_stop_timeout(void);
 /***** Global variables *****************************************************/
 /***** Local variables ******************************************************/
 
-//! set pointer of UART_HANDER for communicate interrupt handler.
-static UART_HANDLER *p_uart_handler;
+//! set pointer of UART_HANDE for communicate interrupt handler.
+static UART_HANDLE *p_uart_handle;
 
 
 /***** Interrupt handler ****************************************************/
@@ -43,7 +44,7 @@ static UART_HANDLER *p_uart_handler;
 */
 CY_ISR(isr_UART_1_Tx)
 {
-  UART_HANDLER *uh = p_uart_handler;
+  UART_HANDLE *uh = p_uart_handle;
   int sts          = UART_1_ReadTxStatus();
 
   while( sts & UART_1_TX_STS_COMPLETE ) { // not loop, insted of "if"
@@ -62,7 +63,7 @@ CY_ISR(isr_UART_1_Tx)
 */
 CY_ISR(isr_UART_1_Rx)
 {
-  UART_HANDLER *uh = p_uart_handler;
+  UART_HANDLE *uh = p_uart_handle;
   int sts          = UART_1_ReadRxStatus();
 
   for(; sts != 0; sts = UART_1_ReadRxStatus()) {
@@ -96,10 +97,10 @@ CY_ISR(isr_UART_1_Rx)
 //================================================================
 /*! initialize
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
 */
-void uart_init(UART_HANDLER *uh)
+void uart_init(UART_HANDLE *uh)
 {
   uh->p_txbuf          = NULL;
   uh->delimiter        = '\n';
@@ -108,7 +109,7 @@ void uart_init(UART_HANDLER *uh)
   uh->rx_rd            = 0;
   uh->rx_wr            = 0;
 
-  p_uart_handler = uh;
+  p_uart_handle = uh;
 
   UART_1_Start();
   UART_1_ClearTxBuffer();
@@ -121,11 +122,11 @@ void uart_init(UART_HANDLER *uh)
 //================================================================
 /*! set work mode
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
   @param  mode          mode.
 */
-void uart_set_mode(UART_HANDLER *uh, int mode)
+void uart_set_mode(UART_HANDLE *uh, int mode)
 {
   uh->mode = mode;
 }
@@ -134,10 +135,10 @@ void uart_set_mode(UART_HANDLER *uh, int mode)
 //================================================================
 /*! Clear transmit buffer.
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
 */
-void uart_clear_tx_buffer(UART_HANDLER *uh)
+void uart_clear_tx_buffer(UART_HANDLE *uh)
 {
   UART_1_ClearTxBuffer();
 }
@@ -146,10 +147,10 @@ void uart_clear_tx_buffer(UART_HANDLER *uh)
 //================================================================
 /*! Clear receive buffer.
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
 */
-void uart_clear_rx_buffer(UART_HANDLER *uh)
+void uart_clear_rx_buffer(UART_HANDLE *uh)
 {
   UART_1_ClearRxBuffer();
   uh->rx_rd = 0;
@@ -160,13 +161,13 @@ void uart_clear_rx_buffer(UART_HANDLER *uh)
 //================================================================
 /*! Transmit binary data.
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
   @param  buf           Pointer of buffer.
   @param  size          Size of buffer.
   @return               Size of transmitted.
 */
-int uart_write(UART_HANDLER *uh, const char *buf, size_t size)
+int uart_write(UART_HANDLE *uh, const char *buf, size_t size)
 {
   if( !uh->flag_tx_finished ) return 0;  // TODO: or -1 ??
   if( size == 0 ) return 0;
@@ -200,13 +201,13 @@ int uart_write(UART_HANDLER *uh, const char *buf, size_t size)
 //================================================================
 /*! Receive binary data.
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
   @param  buf           Pointer of buffer.
   @param  size          Size of buffer.
   @return int           Num of received bytes.
 */
-int uart_read(UART_HANDLER *uh, char *buf, size_t size)
+int uart_read(UART_HANDLE *uh, char *buf, size_t size)
 {
   size_t cnt = size;
 
@@ -239,12 +240,12 @@ int uart_read(UART_HANDLER *uh, char *buf, size_t size)
 //================================================================
 /*! Transmit string.
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
   @param  buf           Pointer of buffer.
   @return               Size of transmitted.
 */
-int uart_puts(UART_HANDLER *uh, const char *buf)
+int uart_puts(UART_HANDLE *uh, const char *buf)
 {
   return uart_write(uh, buf, strlen(buf));
 }
@@ -253,13 +254,13 @@ int uart_puts(UART_HANDLER *uh, const char *buf)
 //================================================================
 /*! Receive string.
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
   @param  buf           Pointer of buffer.
   @param  size          Size of buffer.
   @return int           Num of received bytes.
 */
-int uart_gets(UART_HANDLER *uh, char *buf, size_t size)
+int uart_gets(UART_HANDLE *uh, char *buf, size_t size)
 {
   size_t cnt = size - 1;
 
@@ -295,12 +296,12 @@ int uart_gets(UART_HANDLER *uh, char *buf, size_t size)
 //================================================================
 /*! Transmit a character. (1 byte)
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
   @param  ch            character
   @return               Size of transmitted.
 */
-int uart_putc(UART_HANDLER *uh, int ch)
+int uart_putc(UART_HANDLE *uh, int ch)
 {
   char buf[1];
 
@@ -312,11 +313,11 @@ int uart_putc(UART_HANDLER *uh, int ch)
 //================================================================
 /*! Receive a character. (1 byte)
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
   @return int           Received character.
 */
-int uart_getc(UART_HANDLER *uh)
+int uart_getc(UART_HANDLE *uh)
 {
   char buf[1];
 
@@ -328,11 +329,11 @@ int uart_getc(UART_HANDLER *uh)
 //================================================================
 /*! check write finished?
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
   @return int           result (bool)
 */
-int uart_is_write_finished(UART_HANDLER *uh)
+int uart_is_write_finished(UART_HANDLE *uh)
 {
   return uh->flag_tx_finished;
 }
@@ -341,11 +342,11 @@ int uart_is_write_finished(UART_HANDLER *uh)
 //================================================================
 /*! check data can be read.
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
   @return int           result (bool)
 */
-int uart_is_readable(UART_HANDLER *uh)
+int uart_is_readable(UART_HANDLE *uh)
 {
   return uh->rx_rd != uh->rx_wr;
 }
@@ -354,11 +355,11 @@ int uart_is_readable(UART_HANDLER *uh)
 //================================================================
 /*! check data length can be read.
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
   @return int           result (bytes)
 */
-int uart_bytes_available(UART_HANDLER *uh)
+int uart_bytes_available(UART_HANDLE *uh)
 {
   if( uh->rx_rd <= uh->rx_wr ) {
     return uh->rx_wr - uh->rx_rd;
@@ -372,13 +373,13 @@ int uart_bytes_available(UART_HANDLER *uh)
 //================================================================
 /*! check data can be read a line.
 
-  @memberof UART_HANDLER
-  @param  uh            Pointer of UART_HANDLER.
+  @memberof UART_HANDLE
+  @param  uh            Pointer of UART_HANDLE.
   @return int           result (bool)
   @note
    If RX-FIFO buffer is full, return false(0).
 */
-int uart_can_read_line(UART_HANDLER *uh)
+int uart_can_read_line(UART_HANDLE *uh)
 {
   uint16_t idx = uh->rx_rd;
 

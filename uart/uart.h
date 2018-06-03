@@ -2,19 +2,19 @@
   @brief
   UART wrapper for PSoC5LP
 
-  @version 1.1
-  @date Wed Sep  7 11:38:17 2016
+  @version 1.2
+  @date Sun Jun  3 19:54:35 2018
 
   <pre>
-  Copyright (C) 2016 Shimane IT Open-Innovation Center.
+  Copyright (C) 2016-2018 Shimane IT Open-Innovation Center.
   All Rights Reserved.
 
   This file is distributed under BSD 3-Clause License.
   </pre>
 */
 
-#ifndef MRUBYC_UARTWRAP_H_
-#define MRUBYC_UARTWRAP_H_
+#ifndef PSOC5_UARTWRAP_H_
+#define PSOC5_UARTWRAP_H_
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -40,9 +40,9 @@ extern "C" {
 
 //================================================
 /*!@brief
-  UART Handler
+  UART Handle
 */
-typedef struct UART_HANDLER {
+typedef struct UART_HANDLE {
   //! @privatesection
   // for transmit
   const char       *p_txbuf;                  // pointer of tx buffer.
@@ -56,33 +56,33 @@ typedef struct UART_HANDLER {
   volatile uint16_t rx_rd;                    // index of rxfifo for read.
   volatile uint16_t rx_wr;                    // index of rxfifo for write.
   volatile char     rxfifo[UART_SIZE_RXFIFO]; // FIFO for received data.
-} UART_HANDLER;
+} UART_HANDLE;
 
 
 /***** Global variables *****************************************************/
 
 
 /***** Function prototypes **************************************************/
-void uart_isr_tx(UART_HANDLER *uh);
-void uart_isr_rx(UART_HANDLER *uh);
-void uart_init(UART_HANDLER *uh);
-void uart_set_mode(UART_HANDLER *uh, int mode);
-void uart_clear_tx_buffer(UART_HANDLER *uh);
-void uart_clear_rx_buffer(UART_HANDLER *uh);
-int uart_write(UART_HANDLER *uh, const char *buf, size_t size);
-int uart_read(UART_HANDLER *uh, char *buf, size_t size);
-int uart_puts(UART_HANDLER *uh, const char *buf);
-int uart_gets(UART_HANDLER *uh, char *buf, size_t size);
-int uart_putc(UART_HANDLER *uh, int ch);
-int uart_getc(UART_HANDLER *uh);
+void uart_isr_tx(UART_HANDLE *uh);
+void uart_isr_rx(UART_HANDLE *uh);
+void uart_init(UART_HANDLE *uh);
+void uart_set_mode(UART_HANDLE *uh, int mode);
+void uart_clear_tx_buffer(UART_HANDLE *uh);
+void uart_clear_rx_buffer(UART_HANDLE *uh);
+int uart_write(UART_HANDLE *uh, const char *buf, size_t size);
+int uart_read(UART_HANDLE *uh, char *buf, size_t size);
+int uart_puts(UART_HANDLE *uh, const char *buf);
+int uart_gets(UART_HANDLE *uh, char *buf, size_t size);
+int uart_putc(UART_HANDLE *uh, int ch);
+int uart_getc(UART_HANDLE *uh);
 
-int uart_is_write_finished(UART_HANDLER *uh);
-int uart_is_readable(UART_HANDLER *uh);
-int uart_bytes_available(UART_HANDLER *uh);
-int uart_can_read_line(UART_HANDLER *uh);
+int uart_is_write_finished(UART_HANDLE *uh);
+int uart_is_readable(UART_HANDLE *uh);
+int uart_bytes_available(UART_HANDLE *uh);
+int uart_can_read_line(UART_HANDLE *uh);
 
 
 #ifdef __cplusplus
 }
 #endif
-#endif /* ifndef MRUBYC_UARTWRAP_H_ */
+#endif
