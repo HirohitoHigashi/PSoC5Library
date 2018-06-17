@@ -18,7 +18,7 @@
 標準版（UART一つのみ）
 ```
 #include "uart.h"
-UART_HANDLER uh;
+UART_HANDLE uh;
 
 int main()
 {
@@ -31,7 +31,7 @@ int main()
 複数版（UART２つ以上）
 ```
 #include "uart2.h"
-UART_HANDLER uh;
+UART_HANDLE uh;
 UART_ISR( &uh, UART_1 );
 
 int main()
