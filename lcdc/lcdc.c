@@ -3,11 +3,11 @@
  LCD Character display module controller for mruby/c devkit-01
 
  @author Shimane IT Open-Innovation Center.
- @version v1.10
- @date Sun Apr 10 12:10:32 2016
+ @version v1.20
+ @date Fri Aug 24 14:48:11 2018
  @note
  <pre>
-  Copyright (C) 2016 Shimane IT Open-Innovation Center.
+  Copyright (C) 2016-2018 Shimane IT Open-Innovation Center.
   Original author: Shimane Institute for Industrial Technology.
 
    This file is destributed under BSD 3-Clause License.
@@ -46,10 +46,20 @@
 #define RS_CTRL 0
 #define RS_DATA 1
 
+// Set 1 if need row/column check.
+#if 1
+# define LCD_NUM_ROW 4
+# define LCD_NUM_COLUMN 20
+#endif
+
+// Change this table according to the type of LCD.
+static const uint8_t LCD_ROW_ADDRESS[] = { 0x00, 0x40, 0x14, 0x54 };
+
 /***** Macros ***************************************************************/
 #define DELAY_us(us)    CyDelayUs(us)
 #define DELAY_ms(ms)    CyDelay(ms)
 
+// 0:all pin continues mode,  1:separate control pin mode.
 #if 0
 #define LCD_RS(rs)      LCD_RS_Write(rs)
 #define LCD_E(e)        LCD_E_Write(e)
@@ -59,6 +69,11 @@
 /***** Typedefs *************************************************************/
 /***** Function prototypes **************************************************/
 /***** Local variables ******************************************************/
+#if defined(LCD_NUM_ROW)
+static unsigned int lcd_cursor_row;
+static unsigned int lcd_cursor_column;
+#endif
+
 /***** Global variables *****************************************************/
 /***** Signal catching functions ********************************************/
 /***** Local functions ******************************************************/
@@ -97,7 +112,12 @@ void lcd_init( void )
 void lcd_clear( void )
 {
   lcd_write8( RS_CTRL, 0x01 );
-  DELAY_ms( 2 );                        // >1.52ms
+  DELAY_us( 1520 );			// >1.52ms
+
+#if defined(LCD_NUM_ROW)
+  lcd_cursor_row = 0;
+  lcd_cursor_column = 0;
+#endif
 }
 
 
@@ -105,24 +125,62 @@ void lcd_clear( void )
 //================================================================
 /*! set display position
 
-  @param        row     Row ( 0 to 3 )
-  @param	column  Column ( 0 to 19 )
+  @param  row		Row
+  @param  column	Column
 */
-void lcd_location( int row, int column )
+void lcd_location( unsigned int row, unsigned int column )
 {
-  static const uint8_t tbl_row[] = { 0x00, 0x40, 0x14, 0x54 };
-  lcd_write8( RS_CTRL, (tbl_row[ row ] + column) | 0x80 );
+#if defined(LCD_NUM_ROW)
+  lcd_cursor_row = row;
+  lcd_cursor_column = column;
+  if( lcd_cursor_row >= LCD_NUM_ROW ) return;
+  if( lcd_cursor_column >= LCD_NUM_COLUMN ) return;
+#endif
+
+  lcd_write8( RS_CTRL, (LCD_ROW_ADDRESS[ row ] + column) | 0x80 );
 }
 
 
 
 //================================================================
+/*! write string
+
+  @param  p	pointer to data.
+  @param  size	data size
+*/
+void lcd_write( void *p, int size )
+{
+#if defined(LCD_NUM_ROW)
+  if( lcd_cursor_row >= LCD_NUM_ROW ) return;
+  if( lcd_cursor_column >= LCD_NUM_COLUMN ) return;
+
+  if( (LCD_NUM_COLUMN - lcd_cursor_column) < size ) {
+    size = LCD_NUM_COLUMN - lcd_cursor_column;
+  }
+  lcd_cursor_column += size;
+#endif
+
+  int i;
+  uint8_t *p1 = p;
+  for( i = 0; i < size; i++ ) {
+    lcd_write8( RS_DATA, *p1++ );
+  }
+}
+
+
+//================================================================
 /*! Put a character
 
-  @param	ch      character code.
+  @param  ch	character code.
 */
 void lcd_putc( int ch )
 {
+#if defined(LCD_NUM_ROW)
+  if( lcd_cursor_row >= LCD_NUM_ROW ) return;
+  if( lcd_cursor_column >= LCD_NUM_COLUMN ) return;
+  lcd_cursor_column++;
+#endif
+
   lcd_write8( RS_DATA, ch );
 }
 
@@ -135,9 +193,18 @@ void lcd_putc( int ch )
 */
 void lcd_puts( const char *s )
 {
+#if defined(LCD_NUM_ROW)
+  if( lcd_cursor_row >= LCD_NUM_ROW ) return;
+#endif
+
   int ch;
   while( (ch = *s++) != '\0' ) {
+#if defined(LCD_NUM_ROW)
+    if( lcd_cursor_column >= LCD_NUM_COLUMN ) return;
+    lcd_cursor_column++;
+
     lcd_write8( RS_DATA, ch );
+#endif
   }
 }
 
@@ -146,8 +213,8 @@ void lcd_puts( const char *s )
 //================================================================
 /*! Set character generator RAM
 
-  @param	code    character code (0-7)
-  @param	bitmap5x8 bitmap data. 4-0 bits x 8datas. upper to lower.
+  @param  code		character code (0-7)
+  @param  bitmap5x8	bitmap data. 4-0 bits x 8datas. upper to lower.
 */
 void lcd_set_cgram( int code, uint8_t *bitmap5x8 )
 {
@@ -163,8 +230,8 @@ void lcd_set_cgram( int code, uint8_t *bitmap5x8 )
 //================================================================
 /*! Write a nibble data to LCD contol or data register.
 
-  @param	rs      Select a register 0:Control, 1:Data.
-  @param	data    data (LSB 4bits)
+  @param  rs	Select a register 0:Control, 1:Data.
+  @param  data	data (LSB 4bits)
 */
 void lcd_write4( uint8_t rs, uint8_t data )
 {
@@ -205,8 +272,8 @@ void lcd_write4( uint8_t rs, uint8_t data )
 //================================================================
 /*! Write a data to LCD control or data register.
 
-  @param	rs      Select a register 0:Control, 1:Data.
-  @param	data    data (8bits)
+  @param  rs	Select a register 0:Control, 1:Data.
+  @param  data	data (8bits)
 */
 void lcd_write8( uint8_t rs, uint8_t data )
 {

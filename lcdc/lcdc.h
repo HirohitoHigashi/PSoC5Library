@@ -3,11 +3,11 @@
  LCD Character display module controller for mruby/c devkit-01
 
  @author Shimane IT Open-Innovation Center.
- @version v1.10
- @date Sun Apr 10 12:10:32 2016
+ @version v1.20
+ @date Fri Aug 24 14:48:11 2018
  @note
  <pre>
-  Copyright (C) 2016 Shimane IT Open-Innovation Center.
+  Copyright (C) 2016-2018 Shimane IT Open-Innovation Center.
   Original author: Shimane Institute for Industrial Technology.
 
    This file is destributed under BSD 3-Clause License.
@@ -35,7 +35,8 @@ extern "C" {
 /***** Function prototypes **************************************************/
 void lcd_init( void );
 void lcd_clear( void );
-void lcd_location( int row, int column );
+void lcd_location( unsigned int row, unsigned int column );
+void lcd_write( void *p, int size );
 void lcd_putc( int ch );
 void lcd_puts( const char *s );
 void lcd_set_cgram( int code, uint8_t *bitmap5x8 );
