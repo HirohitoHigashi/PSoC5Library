@@ -1,0 +1,10 @@
+# Executables
+
+# Temporary files
+*.o
+*.obj
+*.log
+
+# Mac file
+.DS_Store
+._.*
