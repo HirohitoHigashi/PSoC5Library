@@ -29,9 +29,9 @@ extern "C" {
 /***** Constat values *******************************************************/
 /***** Macros ***************************************************************/
 #define lcd_locate(r,c)  lcd_location((r),(c))
-#define lcd_display_on(on_off)     lcd_display_control( 0x04, (on_off) )
-#define lcd_display_cursor(on_off) lcd_display_control( 0x02, (on_off) )
-#define lcd_display_blink(on_off)  lcd_display_control( 0x01, (on_off) )
+#define lcd_display_on(on_off) lcd_display_control( 0x04, (on_off) )
+#define lcd_cursor_on(on_off)  lcd_display_control( 0x02, (on_off) )
+#define lcd_blink_on(on_off)   lcd_display_control( 0x01, (on_off) )
 
 
 /***** Typedefs *************************************************************/
