@@ -3,8 +3,8 @@
  LCD Character display module controller for mruby/c devkit-01
 
  @author Shimane IT Open-Innovation Center.
- @version v1.20
- @date Fri Aug 24 14:48:11 2018
+ @version v1.30
+ @date Sat Sep  1 20:08:53 2018
  @note
  <pre>
   Copyright (C) 2016-2018 Shimane IT Open-Innovation Center.
@@ -70,9 +70,11 @@ static const uint8_t LCD_ROW_ADDRESS[] = { 0x00, 0x40, 0x14, 0x54 };
 /***** Function prototypes **************************************************/
 /***** Local variables ******************************************************/
 #if defined(LCD_NUM_ROW)
-static unsigned int lcd_cursor_row;
-static unsigned int lcd_cursor_column;
+static uint8_t lcd_cursor_row;
+static uint8_t lcd_cursor_column;
 #endif
+static uint8_t lcd_display_control_bitmap = 0x08;
+
 
 /***** Global variables *****************************************************/
 /***** Signal catching functions ********************************************/
@@ -85,22 +87,23 @@ static unsigned int lcd_cursor_column;
 */
 void lcd_init( void )
 {
-  DELAY_ms( 20 );                       // >15ms
+  DELAY_ms( 20 );			// >15ms
   lcd_write4( RS_CTRL, 0x03 );
-  DELAY_ms( 5 );                        // >4.1ms
+  DELAY_ms( 5 );			// >4.1ms
   lcd_write4( RS_CTRL, 0x03 );
-  DELAY_us( 200 );                      // >100us
+  DELAY_us( 200 );			// >100us
   lcd_write4( RS_CTRL, 0x03 );
-  DELAY_us( 53 );                       // >37us (but typ.)
+  DELAY_us( 53 );			// >37us (but typ.)
   lcd_write4( RS_CTRL, 0x02 );
   DELAY_us( 53 );
 
-  lcd_write8( RS_CTRL, 0x28 );          // 2 lines, 5x8 dots
-  lcd_write8( RS_CTRL, 0x08 );          // display off
-  lcd_write8( RS_CTRL, 0x01 );          // display clear
+  lcd_write8( RS_CTRL, 0x28 );		// 2 lines, 5x8 dots
+  lcd_write8( RS_CTRL, 0x08 );		// display off
+  lcd_write8( RS_CTRL, 0x01 );		// display clear
   DELAY_us( 2160 );
-  lcd_write8( RS_CTRL, 0x06 );          // cursor increment, display shift off
-  lcd_write8( RS_CTRL, 0x0c );          // display on
+  lcd_write8( RS_CTRL, 0x06 );		// cursor increment, display shift off
+
+  lcd_display_on( 1 );			// display on
 }
 
 
@@ -211,6 +214,24 @@ void lcd_puts( const char *s )
 
 
 //================================================================
+/*! Display, Cursor and Blink ON or OFF
+
+  @param  bit
+  @param  on_off
+*/
+void lcd_display_control( int bit, int on_off )
+{
+  if( on_off )
+    lcd_display_control_bitmap |= bit;
+  else
+    lcd_display_control_bitmap &= ~bit;
+
+  lcd_write8( RS_CTRL, lcd_display_control_bitmap );
+}
+
+
+
+//================================================================
 /*! Set character generator RAM
 
   @param  code		character code (0-7)
@@ -242,13 +263,13 @@ void lcd_write4( uint8_t rs, uint8_t data )
   LCD_RS( rs );
   LCD_E( 0 );
   LCD_DATA( data );
-  DELAY_us( 0 );                //   tAS (>140ns)
+  DELAY_us( 0 );		//   tAS (>140ns)
 
   LCD_E( 1 );
-  DELAY_us( 1 );                //   PWEH (>450ns)
+  DELAY_us( 1 );		//   PWEH (>450ns)
 
   LCD_E( 0 );
-  DELAY_us( 1 );                //   tCYCE (>1000ns)
+  DELAY_us( 1 );		//   tCYCE (>1000ns)
 
 #else
   /*
@@ -256,14 +277,14 @@ void lcd_write4( uint8_t rs, uint8_t data )
   */
   data &= 0x0f;
   if( rs ) data |= 0x20;
-  LCD_Write( data );            // RS, /E
-  DELAY_us( 0 );                //   tAS (>140ns)
+  LCD_Write( data );		// RS, /E
+  DELAY_us( 0 );		//   tAS (>140ns)
 
-  LCD_Write( data | 0x10 );     // E
-  DELAY_us( 1 );                //   PWEH (>450ns)
+  LCD_Write( data | 0x10 );	// E
+  DELAY_us( 1 );		//   PWEH (>450ns)
 
-  LCD_Write( data );            // /E
-  DELAY_us( 1 );                //   tCYCE (>1000ns)
+  LCD_Write( data );		// /E
+  DELAY_us( 1 );		//   tCYCE (>1000ns)
 #endif
 }
 
@@ -277,7 +298,7 @@ void lcd_write4( uint8_t rs, uint8_t data )
 */
 void lcd_write8( uint8_t rs, uint8_t data )
 {
-  lcd_write4( rs, data >> 4 );          // High 4 bits.
-  lcd_write4( rs, data & 0x0f );        // Low 4 bits.
+  lcd_write4( rs, data >> 4 );		// High 4 bits.
+  lcd_write4( rs, data & 0x0f );	// Low 4 bits.
   DELAY_us( 53 );
 }

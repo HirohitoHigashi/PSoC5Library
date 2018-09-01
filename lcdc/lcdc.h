@@ -3,8 +3,8 @@
  LCD Character display module controller for mruby/c devkit-01
 
  @author Shimane IT Open-Innovation Center.
- @version v1.20
- @date Fri Aug 24 14:48:11 2018
+ @version v1.30
+ @date Sat Sep  1 20:08:53 2018
  @note
  <pre>
   Copyright (C) 2016-2018 Shimane IT Open-Innovation Center.
@@ -29,6 +29,10 @@ extern "C" {
 /***** Constat values *******************************************************/
 /***** Macros ***************************************************************/
 #define lcd_locate(r,c)  lcd_location((r),(c))
+#define lcd_display_on(on_off)     lcd_display_control( 0x04, (on_off) )
+#define lcd_display_cursor(on_off) lcd_display_control( 0x02, (on_off) )
+#define lcd_display_blink(on_off)  lcd_display_control( 0x01, (on_off) )
+
 
 /***** Typedefs *************************************************************/
 /***** Global variables *****************************************************/
@@ -39,6 +43,7 @@ void lcd_location( unsigned int row, unsigned int column );
 void lcd_write( void *p, int size );
 void lcd_putc( int ch );
 void lcd_puts( const char *s );
+void lcd_display_control( int bit, int on_off );
 void lcd_set_cgram( int code, uint8_t *bitmap5x8 );
 
 void lcd_write4( uint8_t rs, uint8_t data );
