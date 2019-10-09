@@ -29,7 +29,7 @@ SPIインターフェース１つのみで使う版と、複数個使う版の�
   - Interrupt On Rx FIFO Not Empty.
 - OKボタンでダイアログを確定する
 - Ports and Pins > Digital Output Pin を配置する
-- Congigure ダイアログを開く
+- Configure ダイアログを開く
 - Name を SS に変更する
 - OKボタンでダイアログを確定する
 - SPIM_1 の ss と 接続する
