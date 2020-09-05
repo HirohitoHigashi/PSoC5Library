@@ -2,11 +2,11 @@
   @brief
   UART wrapper for PSoC5LP
 
-  @version 1.2
-  @date Sun Jun  3 19:54:35 2018
+  @version 1.3
+  @date 2020/09/05 13:20:17
 
   <pre>
-  Copyright (C) 2016-2018 Shimane IT Open-Innovation Center.
+  Copyright (C) 2016-2020 Shimane IT Open-Innovation Center.
   All Rights Reserved.
 
   This file is distributed under BSD 3-Clause License.
@@ -16,7 +16,6 @@
 
 /***** System headers *******************************************************/
 #include <project.h>
-#include <string.h>
 
 /***** Local headers ********************************************************/
 #include "uart.h"
@@ -45,15 +44,18 @@ static UART_HANDLE *p_uart_handle;
 CY_ISR(isr_UART_1_Tx)
 {
   UART_HANDLE *uh = p_uart_handle;
-  int sts          = UART_1_ReadTxStatus();
 
-  while( sts & UART_1_TX_STS_COMPLETE ) { // not loop, insted of "if"
-    if( uh->tx_rd >= uh->size_txbuf ) uh->flag_tx_finished = 1;
-    if( uh->flag_tx_finished ) break;
+  // clear Tx status register and check simply.
+  if( !(UART_1_ReadTxStatus() & UART_1_TX_STS_FIFO_EMPTY) ) return;
 
-    UART_1_WriteTxData(uh->p_txbuf[uh->tx_rd++]);
-    break;
+  uint16_t n = uh->size_txbuf - uh->tx_rd;
+  if( n > UART_1_TX_BUFFER_SIZE ) n = UART_1_TX_BUFFER_SIZE;
+
+  for( ; n > 0; n-- ) {
+    UART_1_WriteTxData( uh->p_txbuf[uh->tx_rd++] );
   }
+
+  if( uh->tx_rd >= uh->size_txbuf ) uh->flag_tx_finished = 1;
 }
 
 
@@ -64,7 +66,7 @@ CY_ISR(isr_UART_1_Tx)
 CY_ISR(isr_UART_1_Rx)
 {
   UART_HANDLE *uh = p_uart_handle;
-  int sts          = UART_1_ReadRxStatus();
+  int sts         = UART_1_ReadRxStatus();
 
   for(; sts != 0; sts = UART_1_ReadRxStatus()) {
     if( sts & UART_1_RX_STS_FIFO_NOTEMPTY ) {
@@ -74,11 +76,13 @@ CY_ISR(isr_UART_1_Rx)
       if( uh->rx_wr < sizeof(uh->rxfifo)) {
         if( uh->rx_wr == uh->rx_rd ) {
           --uh->rx_wr;   // buffer full
+	  uh->rx_overflow = 1;
         }
       }
       else {
         if( uh->rx_rd == 0 ) {
           --uh->rx_wr;   // buffer full
+	  uh->rx_overflow = 1;
         }
         else {
           uh->rx_wr = 0; // roll over.
@@ -102,12 +106,17 @@ CY_ISR(isr_UART_1_Rx)
 */
 void uart_init(UART_HANDLE *uh)
 {
-  uh->p_txbuf          = NULL;
-  uh->delimiter        = '\n';
-  uh->flag_tx_finished = 1;
-  uh->mode             = 0;
-  uh->rx_rd            = 0;
-  uh->rx_wr            = 0;
+  *uh = (UART_HANDLE){
+    .p_txbuf          = 0,
+    .size_txbuf       = 0,
+    .tx_rd            = 0,
+    .flag_tx_finished = 1,
+    .mode             = 0,
+    .rx_overflow      = 0,
+    .delimiter        = '\n',
+    .rx_rd            = 0,
+    .rx_wr            = 0,
+  };
 
   p_uart_handle = uh;
 
@@ -116,19 +125,6 @@ void uart_init(UART_HANDLE *uh)
   isr_UART_1_Tx_StartEx(isr_UART_1_Tx);
   UART_1_ClearRxBuffer();
   isr_UART_1_Rx_StartEx(isr_UART_1_Rx);
-}
-
-
-//================================================================
-/*! set work mode
-
-  @memberof UART_HANDLE
-  @param  uh            Pointer of UART_HANDLE.
-  @param  mode          mode.
-*/
-void uart_set_mode(UART_HANDLE *uh, int mode)
-{
-  uh->mode = mode;
 }
 
 
@@ -153,31 +149,35 @@ void uart_clear_tx_buffer(UART_HANDLE *uh)
 void uart_clear_rx_buffer(UART_HANDLE *uh)
 {
   UART_1_ClearRxBuffer();
+
+  uint8 interrupts = CyEnterCriticalSection();
   uh->rx_rd = 0;
   uh->rx_wr = 0;
+  uh->rx_overflow = 0;
+  CyExitCriticalSection( interrupts );
 }
 
 
 //================================================================
-/*! Transmit binary data.
+/*! Send out binary data.
 
   @memberof UART_HANDLE
   @param  uh            Pointer of UART_HANDLE.
-  @param  buf           Pointer of buffer.
+  @param  buffer        Pointer of buffer.
   @param  size          Size of buffer.
   @return               Size of transmitted.
 */
-int uart_write(UART_HANDLE *uh, const char *buf, size_t size)
+int uart_write(UART_HANDLE *uh, const void *buffer, size_t size)
 {
   if( !uh->flag_tx_finished ) return 0;  // TODO: or -1 ??
   if( size == 0 ) return 0;
 
-  uh->p_txbuf          = buf;
+  uh->p_txbuf          = buffer;
   uh->size_txbuf       = size;
   uh->tx_rd            = 1;
   uh->flag_tx_finished = 0;
 
-  UART_1_WriteTxData(*buf); // send first byte.
+  UART_1_WriteTxData( *(uint8_t *)buffer );	// send first byte.
   if( uh->mode & UART_WRITE_NONBLOCK ) return 0;
 
   do {
@@ -203,51 +203,41 @@ int uart_write(UART_HANDLE *uh, const char *buf, size_t size)
 
   @memberof UART_HANDLE
   @param  uh            Pointer of UART_HANDLE.
-  @param  buf           Pointer of buffer.
+  @param  buffer        Pointer of buffer.
   @param  size          Size of buffer.
   @return int           Num of received bytes.
+
+  @note                 If no data received, it blocks execution.
 */
-int uart_read(UART_HANDLE *uh, char *buf, size_t size)
+int uart_read(UART_HANDLE *uh, void *buffer, size_t size)
 {
-  size_t cnt = size;
-
-  while( 1 ) {
-    // buffer is empty?
-    if( uh->rx_rd == uh->rx_wr ) {
-      CyPmAltAct(PM_ALT_ACT_TIME_NONE, PM_ALT_ACT_SRC_PICU);
+  // wait for data.
+  while( !uart_is_readable(uh) ) {
+    CyPmAltAct(PM_ALT_ACT_TIME_NONE, PM_ALT_ACT_SRC_PICU);
 #ifdef UART_CHECK_TIMEOUT
-      if( uart_check_timeout()) {
-        uart_stop_timeout();
-        return -1;
-      }
-#endif
-      continue;
+    if( uart_check_timeout()) {
+      uart_stop_timeout();
+      return -1;
     }
-
-    *buf++ = uh->rxfifo[uh->rx_rd++];
-    if( uh->rx_rd >= sizeof(uh->rxfifo)) uh->rx_rd = 0;
-
-    if( --cnt == 0 ) break;
+#endif
   }
+
+  // copy fifo to buffer
+  uint8_t *buf = buffer;
+  size_t   cnt = size;
+  uint16_t rx_rd;
+
+  do {
+    rx_rd = uh->rx_rd;
+    *buf++ = uh->rxfifo[rx_rd++];
+    if( rx_rd >= sizeof(uh->rxfifo) ) rx_rd = 0;
+    uh->rx_rd = rx_rd;
+  } while( --cnt != 0 && rx_rd != uh->rx_wr );
 
 #ifdef UART_CHECK_TIMEOUT
   uart_stop_timeout();
 #endif
   return size - cnt;
-}
-
-
-//================================================================
-/*! Transmit string.
-
-  @memberof UART_HANDLE
-  @param  uh            Pointer of UART_HANDLE.
-  @param  buf           Pointer of buffer.
-  @return               Size of transmitted.
-*/
-int uart_puts(UART_HANDLE *uh, const char *buf)
-{
-  return uart_write(uh, buf, strlen(buf));
 }
 
 
@@ -259,14 +249,16 @@ int uart_puts(UART_HANDLE *uh, const char *buf)
   @param  buf           Pointer of buffer.
   @param  size          Size of buffer.
   @return int           Num of received bytes.
+
+  @note                 If no data received, it blocks execution.
 */
 int uart_gets(UART_HANDLE *uh, char *buf, size_t size)
 {
   size_t cnt = size - 1;
 
   while( 1 ) {
-    // buffer is empty?
-    if( uh->rx_rd == uh->rx_wr ) {
+    // wait for data.
+    if( !uart_is_readable(uh) ) {
       CyPmAltAct(PM_ALT_ACT_TIME_NONE, PM_ALT_ACT_SRC_PICU);
 #ifdef UART_CHECK_TIMEOUT
       if( uart_check_timeout()) {
@@ -278,8 +270,11 @@ int uart_gets(UART_HANDLE *uh, char *buf, size_t size)
       continue;
     }
 
-    int ch = (*buf++ = uh->rxfifo[uh->rx_rd++]);
-    if( uh->rx_rd >= sizeof(uh->rxfifo)) uh->rx_rd = 0;
+    // copy fifo to buffer
+    uint16_t rx_rd = uh->rx_rd;
+    int ch = (*buf++ = uh->rxfifo[rx_rd++]);
+    if( rx_rd >= sizeof(uh->rxfifo)) rx_rd = 0;
+    uh->rx_rd = rx_rd;
 
     if( --cnt == 0 ) break;
     if( ch == uh->delimiter ) break;
@@ -294,61 +289,44 @@ int uart_gets(UART_HANDLE *uh, char *buf, size_t size)
 
 
 //================================================================
-/*! Transmit a character. (1 byte)
+/*! Receive binary block data.
 
   @memberof UART_HANDLE
   @param  uh            Pointer of UART_HANDLE.
-  @param  ch            character
-  @return               Size of transmitted.
+  @param  buffer        Pointer of buffer.
+  @param  size          Size of buffer.
+  @return int           Num of received bytes.
 */
-int uart_putc(UART_HANDLE *uh, int ch)
+int uart_read_block(UART_HANDLE *uh, void *buffer, size_t size)
 {
-  char buf[1];
+  uint8 *buf = buffer;
+  size_t cnt = size;
 
-  buf[0] = ch;
-  return uart_write(uh, buf, 1);
+  while( cnt > 0 ) {
+    int n = uart_read(uh, buf, cnt);
+    if( n < 0 ) return n;
+    cnt -= n;
+    buf += n;
+  }
+
+  return size;
 }
 
 
 //================================================================
-/*! Receive a character. (1 byte)
+/*! Receive binary data. (non block)
 
   @memberof UART_HANDLE
   @param  uh            Pointer of UART_HANDLE.
-  @return int           Received character.
+  @param  buffer        Pointer of buffer.
+  @param  size          Size of buffer.
+  @return int           Num of received bytes.
 */
-int uart_getc(UART_HANDLE *uh)
+int uart_read_nonblock(UART_HANDLE *uh, void *buffer, size_t size)
 {
-  char buf[1];
-
-  uart_read(uh, buf, 1);
-  return buf[0];
-}
-
-
-//================================================================
-/*! check write finished?
-
-  @memberof UART_HANDLE
-  @param  uh            Pointer of UART_HANDLE.
-  @return int           result (bool)
-*/
-int uart_is_write_finished(UART_HANDLE *uh)
-{
-  return uh->flag_tx_finished;
-}
-
-
-//================================================================
-/*! check data can be read.
-
-  @memberof UART_HANDLE
-  @param  uh            Pointer of UART_HANDLE.
-  @return int           result (bool)
-*/
-int uart_is_readable(UART_HANDLE *uh)
-{
-  return uh->rx_rd != uh->rx_wr;
+  int n = uart_bytes_available(uh);
+  if( n != 0 ) uart_read(uh, buffer, n);
+  return n;
 }
 
 
@@ -361,11 +339,13 @@ int uart_is_readable(UART_HANDLE *uh)
 */
 int uart_bytes_available(UART_HANDLE *uh)
 {
-  if( uh->rx_rd <= uh->rx_wr ) {
-    return uh->rx_wr - uh->rx_rd;
+  uint16_t rx_wr = uh->rx_wr;
+
+  if( uh->rx_rd <= rx_wr ) {
+    return rx_wr - uh->rx_rd;
   }
   else {
-    return sizeof(uh->rxfifo) - uh->rx_rd + uh->rx_wr;
+    return sizeof(uh->rxfifo) - uh->rx_rd + rx_wr;
   }
 }
 
@@ -375,16 +355,25 @@ int uart_bytes_available(UART_HANDLE *uh)
 
   @memberof UART_HANDLE
   @param  uh            Pointer of UART_HANDLE.
-  @return int           result (bool)
+  @return int           string length.
   @note
-   If RX-FIFO buffer is full, return false(0).
+   If RX-FIFO buffer is full, return -1.
 */
 int uart_can_read_line(UART_HANDLE *uh)
 {
-  uint16_t idx = uh->rx_rd;
+  uint16_t idx   = uh->rx_rd;
+  uint16_t rx_wr = uh->rx_wr;
 
-  while( idx != uh->rx_wr ) {
-    if( uh->rxfifo[idx++] == uh->delimiter ) return 1;
+  if( uh->rx_overflow ) return -1;
+
+  while( idx != rx_wr ) {
+    if( uh->rxfifo[idx++] == uh->delimiter ) {
+      if( uh->rx_rd < idx ) {
+	return idx - uh->rx_rd;
+      } else {
+	return sizeof(uh->rxfifo) - uh->rx_rd + idx;
+      }
+    }
     if( idx >= sizeof(uh->rxfifo)) idx = 0;
   }
 
