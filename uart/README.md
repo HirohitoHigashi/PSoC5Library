@@ -27,7 +27,7 @@ CY8CKIT-059 (CY8C5888LTI-LP097) 24MHz, 5V
  - Configureダイアログを開く
  - Nameが"UART_1"であることを確認
  - 通信速度等のパラメータ設定
- - 同ダイアログAdvancedタブのInterruptを、"RX- On Byte Received"と"TX - On TX Complete"にチェックを入れる
+ - 同ダイアログAdvancedタブのInterruptを、"RX- On Byte Received"と"TX - On FIFO Empty"にチェックを入れる
 - System > Interrupt デバイスを2つ配置
  - UARTのtx_interruptとrx_interruptに接続
  - 名前をそれぞれ、"isr_UART_1_Tx"と、"isr_UART_1_Rx"に変更
