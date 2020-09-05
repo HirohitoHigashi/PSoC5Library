@@ -345,7 +345,9 @@ int uart_read_block(UART_HANDLE *uh, void *buffer, size_t size)
 int uart_read_nonblock(UART_HANDLE *uh, void *buffer, size_t size)
 {
   int n = uart_bytes_available(uh);
+  if( n > size ) n = size;
   if( n != 0 ) uart_read(uh, buffer, n);
+
   return n;
 }
 
